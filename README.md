@@ -1,2 +1,2 @@
 # raft
-raft algorithm
+the repo is for learning raft algorithm
