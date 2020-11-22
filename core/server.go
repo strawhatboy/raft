@@ -15,12 +15,21 @@ type Server struct {
 	config  *Config
 }
 
-func CreateServer(c *Config) *Server {
+func CreateServer(c *Config) (*Server, error) {
+
+
 	s := &Server{
 		logger:  GetLogger("server"),
 		config:  c,
 		httpSrv: gin.Default(),
 	}
+	store, err := NewStore(*c.SingleNode, c.ID, c.RaftAddr, c.RaftPath)
+	if err != nil {
+		s.logger.Error("failed to create store ", err)
+		return nil, err
+	}
+
+	s.store = store
 
 	s.logger.Debug("creating the server with config: ", c)
 	s.httpSrv.GET("/:key", func(c *gin.Context) {
@@ -28,7 +37,7 @@ func CreateServer(c *Config) *Server {
 
 		var v string
 		var err error
-		if v, err = s.store.Get(k); err != nil {
+		if v = s.store.Get(k); err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"code":   100,
 				"msg":    fmt.Sprintf("Failed to get value from key: %v", k),
@@ -62,8 +71,28 @@ func CreateServer(c *Config) *Server {
 		}
 	})
 
+	s.httpSrv.POST("/join", func(c *gin.Context) {
+		id := c.Param("id")
+		addr := c.Param("addr")
+
+		if err := s.store.Join(id, addr); err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"code": 101,
+				"msg": fmt.Sprintf("failed to handle join request with %v %v, err: %v", id, addr, err),
+				"result": nil,
+			})
+		} else {
+			c.JSON(http.StatusOK, gin.H{
+				"code": 0,
+				"msg": "Ok",
+				"result": nil,
+			})
+		}
+
+	})
+
 	s.logger.Debug("server created")
-	return s
+	return s, nil
 }
 
 func (s *Server) Run() {

@@ -1,4 +1,7 @@
 {
     "httpAddr": "0.0.0.0:18080",
-    "raftAddr": "0.0.0.0:20000"
+    "raftAddr": "0.0.0.0:20000",
+    "joinAddr": "",
+    "id": "n1",
+    "raftPath": "./raft"
 }

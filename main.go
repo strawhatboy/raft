@@ -18,19 +18,35 @@ import (
 	"github.com/strawhatboy/raft/core"
 )
 
+const (
+	DEFAULT_HTTP_ADDR = "0.0.0.0:18080"
+	DEFAULT_RAFT_ADDR = "0.0.0.0:20000"
+)
+
 func main() {
 	core.InitLogger()
 	c, err := core.InitConfig()
 	if err != nil {
-		fmt.Println("failed to init log: %v", err)
+		fmt.Println("failed to init log: ", err)
 	}
 	mainLogger := core.GetLogger("main")
 	mainLogger.Info("starting")
 
-	var httpPort int
-	var raftPort int
-	flag.IntVar(&httpPort, "-http-port", 18080, "http rest api port")
-	flag.IntVar(&raftPort, "-raft-port", 20000, "raft tcp port")
+	var httpAddr string
+	var raftAddr string
+	var joinAddr string
+	var id	string
+	flag.StringVar(&httpAddr, "-http-addr", DEFAULT_HTTP_ADDR, "http rest api port")
+	flag.StringVar(&raftAddr, "-raft-addr", DEFAULT_RAFT_ADDR, "raft tcp port")
+	flag.StringVar(&joinAddr, "-join-addr", "", "the address to join into")
+	flag.StringVar(&id, "-id", "", "the id of the node")
+
+	if httpAddr != DEFAULT_HTTP_ADDR {
+		c.HttpAddr = httpAddr
+	}
+	if raftAddr != DEFAULT_RAFT_ADDR {
+		c.RaftAddr = raftAddr
+	}
 
 	s := core.CreateServer(c)
 	s.Run()

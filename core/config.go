@@ -7,8 +7,12 @@ import (
 )
 
 type Config struct {
-	HttpAddr string `json:"httpAddr"`
-	RaftAddr string `json:"raftAddr"`
+	SingleNode *bool  `json:"singleNode"`
+	HttpAddr   string `json:"httpAddr"`
+	RaftAddr   string `json:"raftAddr"`
+	JoinAddr   string `json:"joinAddr"`
+	ID         string `json:"id"`
+	RaftPath   string `json:"raftPath"`
 }
 
 func InitConfig() (*Config, error) {
