@@ -10,10 +10,12 @@
 package core
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -47,7 +49,7 @@ type Snapshot struct {
 
 var snapShotLogger = GetLogger("snapshot")
 
-func NewStore(singleNode bool, id string, raftAddr string, raftDir string) (*Store, error) {
+func NewStore(singleNode bool, id string, raftAddr string, raftPath string, joinAddr string) (*Store, error) {
 	s := &Store{
 		logger: GetLogger("store"),
 		data:	make(map[string]string),
@@ -64,13 +66,13 @@ func NewStore(singleNode bool, id string, raftAddr string, raftDir string) (*Sto
 
 	transport, err := raft.NewTCPTransport(raftAddr, tcpAddr, 10, DEFAULT_TIMEOUT, os.Stdout)
 	if err != nil {
-		s.logger.Error("error when creating TCP transport", err)
+		s.logger.Error("error when creating TCP transport with: ", raftAddr, tcpAddr, err)
 		return nil, err
 	}
 
-	snapshotStore, err := raft.NewFileSnapshotStore(raftDir, 10, os.Stdout)
+	snapshotStore, err := raft.NewFileSnapshotStore(raftPath, 10, os.Stdout)
 	if err != nil {
-		s.logger.Error("error when creating snapshot store in path: ", raftDir, err)
+		s.logger.Error("error when creating snapshot store in path: ", raftPath, err)
 		return nil, err
 	}
 
@@ -95,6 +97,17 @@ func NewStore(singleNode bool, id string, raftAddr string, raftDir string) (*Sto
 		})
 	} else {
 		// should join other cluster
+		body := JoinRequestBody{ID: id, Addr: raftAddr}
+		if j, err := json.Marshal(body); err == nil {
+			if res, err := http.Post(joinAddr + "/join", "text/json", bytes.NewReader(j)); err != nil {
+				s.logger.Error("failed to send join request to: ", joinAddr, err)
+				return nil, err
+			} else {
+				s.logger.Info(fmt.Sprintf("sent json %v and got response %v", string(j), res))
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	return s, nil
@@ -115,11 +128,13 @@ func (s *Store) Put(key string, value string) error {
 		return fmt.Errorf("current node is not a leader")
 	}
 
-	operation := Operation{name: "put", key: key, value: value }
+	operation := Operation{Name: "put", Key: key, Value: value }
 	b, err := operation.marshal()
 	if err != nil {
 		s.logger.Error("failed to marshal operation put with key&value: ", key, value, err)
 		return err
+	} else {
+		s.logger.Info("marshaled json: ", string(b))
 	}
 
 	future := s.raft.Apply(b, DEFAULT_TIMEOUT)
@@ -131,7 +146,7 @@ func (s *Store) Delete(key string) error {
 		return fmt.Errorf("current node is not a leader")
 	}
 
-	operation := Operation{name: "delete", key: key}
+	operation := Operation{Name: "delete", Key: key}
 	b, err := operation.marshal()
 	if err != nil {
 		s.logger.Error("failed to marshal operation delete with key: ", key, err)
@@ -201,6 +216,8 @@ func (s *Store) Apply(l *raft.Log) interface{} {
 	err := o.unmarshal(l.Data)
 	if err != nil {
 		s.logger.Error("failed to unmarshal from raft.Log: ", err)
+	} else {
+		s.logger.Info("unmarshaled apply log: ", o)
 	}
 
 	return o.apply(s)

@@ -1,9 +1,8 @@
 package core
 
 import (
-	"bytes"
-	"encoding/binary"
-
+	"encoding/json"
+	"fmt"
 )
 
 type IOperation interface {
@@ -13,31 +12,29 @@ type IOperation interface {
 }
 
 type Operation struct {
-	name  string
-	key   string
-	value string
+	Name  string	`json:"name"`
+	Key   string	`json:"key"`
+	Value string	`json:"value"`
 }
 
 func (o Operation) apply(s IStore) interface{} {
-	switch o.name {
+	switch o.Name {
 	case "put":
-		return s.ApplyPut(o.key, o.value)
+		return s.ApplyPut(o.Key, o.Value)
 	case "delete":
-		return s.ApplyDelete(o.key)
+		return s.ApplyDelete(o.Key)
 	default:
-		panic("unknow command " + o.name)
+		panic("unknow command " + o.Name)
 	}
 }
 
 func (o Operation) marshal() ([]byte, error) {
-	buf := &bytes.Buffer{}
-	err := binary.Write(buf, binary.BigEndian, o)
-	return buf.Bytes(), err
+	fmt.Println(fmt.Sprintf("marshaling Operation: %v", o))
+	return json.Marshal(o)
 }
 
-func (o Operation) unmarshal(b []byte) error {
-	buf := bytes.NewBuffer(b)
-	err := binary.Read(buf, binary.BigEndian, &o)
-	return err
+func (o *Operation) unmarshal(b []byte) error {
+	fmt.Println(fmt.Sprintf("Unmarshaling Operation: %v, from bytes: %v", o, b))
+	return json.Unmarshal(b, o)
 }
 
